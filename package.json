@@ -15,10 +15,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:safe": "npx vite build",
+    "build:render": "npm ci && npx vite build",
     "preview": "vite preview",
-    "build:render": "npm ci && npm run build",
     "start": "npm run preview",
     "check-env": "node check-env.js",
+    "postinstall": "echo 'Dependencies installed successfully'",
     "type-check": "tsc --noEmit",
     "lint": "echo 'Linting...' && echo 'No linter configured yet'",
     "test": "echo 'Testing...' && echo 'No tests configured yet'",
