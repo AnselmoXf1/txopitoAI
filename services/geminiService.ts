@@ -61,7 +61,7 @@ const createAIClient = () => {
     throw new Error("API_KEY is missing. Configure GEMINI_API_KEY in .env.local");
   }
   return new GoogleGenAI({ apiKey: config.gemini.apiKey });
-};
+}
 
 // --- CHAT WITH VISION ---
 export const streamResponse = async (
