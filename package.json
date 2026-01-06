@@ -1,0 +1,51 @@
+{
+  "name": "txopito-ia",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Assistente educacional e consultivo multifuncional com gamificação e capacidades multimodais",
+  "keywords": [
+    "ai",
+    "education",
+    "gamification",
+    "multimodal",
+    "react",
+    "gemini"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "build:render": "npm ci && npm run build",
+    "start": "npm run preview",
+    "type-check": "tsc --noEmit",
+    "lint": "echo 'Linting...' && echo 'No linter configured yet'",
+    "test": "echo 'Testing...' && echo 'No tests configured yet'",
+    "test-mongodb": "node test-mongodb-connection.js",
+    "clean": "rm -rf dist node_modules/.vite",
+    "reset-data": "echo 'Clearing localStorage data...' && node -e \"console.log('Use browser dev tools to clear localStorage')\""
+  },
+  "dependencies": {
+    "@google/genai": "^1.34.0",
+    "firebase": "^10.7.1",
+    "lucide-react": "^0.562.0",
+    "mongodb": "^6.3.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "local"
+  },
+  "author": "TXOPITO IA Team",
+  "license": "MIT"
+}

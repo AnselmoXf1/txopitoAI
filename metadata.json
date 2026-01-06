@@ -1,0 +1,7 @@
+{
+  "name": "TXOPITO IA",
+  "description": "An expanded campus AI assistant for education, consulting, agriculture, and more, providing didactic and ethical guidance.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
