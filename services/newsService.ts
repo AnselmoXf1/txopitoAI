@@ -212,3 +212,91 @@ export class NewsService {
 
 // Instância singleton
 export const newsService = NewsService.getInstance();
+
+// Funções auxiliares para compatibilidade
+export const getCurrentNews = async (category?: string, limit: number = 5): Promise<NewsItem[]> => {
+  const service = NewsService.getInstance();
+  await service.updateKnowledge();
+  
+  // Simula notícias baseadas no conhecimento atual
+  const mockNews: NewsItem[] = [
+    {
+      id: '1',
+      title: 'IA Generativa Transforma Educação em 2026',
+      summary: 'Assistentes educacionais como TXOPITO IA estão revolucionando o aprendizado personalizado.',
+      category: 'technology',
+      date: new Date().toISOString(),
+      relevance: 'high',
+      source: 'Tech News Africa'
+    },
+    {
+      id: '2', 
+      title: 'Moçambique Lidera Inovação Digital em África',
+      summary: 'País se destaca em transformação digital e startups tecnológicas.',
+      category: 'africa',
+      date: new Date().toISOString(),
+      relevance: 'high',
+      source: 'África Digital'
+    },
+    {
+      id: '3',
+      title: 'Sustentabilidade e Tecnologia Caminham Juntas',
+      summary: 'Energia renovável e IA trabalham para um futuro mais verde.',
+      category: 'science',
+      date: new Date().toISOString(),
+      relevance: 'medium',
+      source: 'Green Tech Today'
+    }
+  ];
+
+  return category 
+    ? mockNews.filter(news => news.category === category).slice(0, limit)
+    : mockNews.slice(0, limit);
+};
+
+export const searchNews = async (query: string, limit: number = 5): Promise<NewsItem[]> => {
+  const service = NewsService.getInstance();
+  const knowledge = await service.getRelevantKnowledge(query);
+  
+  // Converte conhecimento em formato de notícias
+  return knowledge.slice(0, limit).map((k, index) => ({
+    id: `search-${index}`,
+    title: k.topic,
+    summary: k.information,
+    category: k.category as any,
+    date: k.lastUpdated,
+    relevance: 'high' as const,
+    source: 'TXOPITO Knowledge Base'
+  }));
+};
+
+export const formatNewsForChat = (news: NewsItem[]): string => {
+  if (news.length === 0) {
+    return "📰 **Notícias Atuais**\n\nNão encontrei notícias específicas no momento, mas posso te ajudar com informações sobre tecnologia, educação e outros tópicos atuais de 2026!";
+  }
+
+  let formatted = "📰 **Notícias Atuais - 2026**\n\n";
+  
+  news.forEach((item, index) => {
+    const emoji = getNewsEmoji(item.category);
+    formatted += `${emoji} **${item.title}**\n`;
+    formatted += `${item.summary}\n`;
+    formatted += `*Fonte: ${item.source}*\n\n`;
+  });
+
+  formatted += "💡 Quer saber mais sobre alguma dessas notícias ou outros tópicos atuais?";
+  
+  return formatted;
+};
+
+const getNewsEmoji = (category: string): string => {
+  const emojis: Record<string, string> = {
+    'technology': '🚀',
+    'education': '📚',
+    'science': '🔬',
+    'business': '💼',
+    'world': '🌍',
+    'africa': '🌍'
+  };
+  return emojis[category] || '📰';
+};

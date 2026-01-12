@@ -14,7 +14,8 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY)
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY),
+        global: 'globalThis',
       },
       resolve: {
         alias: {
@@ -26,19 +27,20 @@ export default defineConfig(({ mode }) => {
         sourcemap: !isProduction,
         minify: isProduction ? 'terser' : false,
         rollupOptions: {
+          external: ['mongodb', 'crypto', 'fs', 'path', 'util'],
           output: {
             manualChunks: {
               vendor: ['react', 'react-dom'],
               gemini: ['@google/genai'],
-              firebase: ['firebase'],
-              mongodb: ['mongodb']
+              firebase: ['firebase']
             }
           }
         },
         chunkSizeWarningLimit: 1000
       },
       optimizeDeps: {
-        include: ['react', 'react-dom', '@google/genai']
+        include: ['react', 'react-dom', '@google/genai'],
+        exclude: ['mongodb']
       }
     };
 });

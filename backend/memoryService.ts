@@ -287,7 +287,6 @@ class MemoryService {
       // Contexto do perfil do usuário
       if (longTerm) {
         context += `PERFIL DO USUÁRIO:\n`;
-        context += `- Nome: ${longTerm.profile.name}\n`;
         context += `- Estilo de comunicação: ${longTerm.profile.communicationStyle}\n`;
         context += `- Estilo de aprendizado: ${longTerm.profile.learningStyle}\n`;
         context += `- Nível de resposta preferido: ${longTerm.profile.responseLength}\n`;
@@ -399,9 +398,8 @@ class MemoryService {
       
       let contextualPrompt = '\n\n## CONTEXTO PERSONALIZADO:\n';
       
-      // Informações do perfil
+      // Informações do perfil (SEM incluir o nome)
       if (longTerm) {
-        contextualPrompt += `- Usuário: ${longTerm.profile.name}\n`;
         contextualPrompt += `- Estilo de comunicação preferido: ${longTerm.profile.communicationStyle}\n`;
         contextualPrompt += `- Estilo de aprendizado: ${longTerm.profile.learningStyle}\n`;
         contextualPrompt += `- Nível de resposta: ${longTerm.profile.responseLength}\n`;
@@ -434,7 +432,7 @@ class MemoryService {
         }
       }
       
-      contextualPrompt += '\nAdapte sua resposta considerando essas informações do usuário.\n';
+      contextualPrompt += '\nAdapte sua resposta considerando essas informações do usuário, mas NÃO mencione o nome dele.\n';
       
       return contextualPrompt;
       

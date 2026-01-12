@@ -2,15 +2,23 @@ import React, { useState } from 'react';
 import { Message, Role } from '../types';
 import Icon from './Icon';
 import FallbackIndicator from './FallbackIndicator';
+import AudioPlayer from './AudioPlayer';
+import { TypewriterText } from './TypewriterText';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface MessageBubbleProps {
   message: Message;
   color: string;
+  isLatest?: boolean; // Para identificar se é a mensagem mais recente da IA
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, color }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, color, isLatest = false }) => {
   const isUser = message.role === Role.USER;
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { language } = useLanguage();
+  const [typewriterComplete, setTypewriterComplete] = useState(false);
+  
+  // Só aplica typewriter para mensagens da IA que são as mais recentes e têm texto
+  const shouldUseTypewriter = !isUser && isLatest && message.text && !message.generatedImage;
   
   // Detecta se é uma mensagem de fallback
   const isFallbackMessage = !isUser && (
@@ -23,22 +31,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, color }) => {
   );
   
   const isImageGenerationError = !isUser && message.text.includes('Geração de imagem temporariamente indisponível');
-
-  const handleSpeak = () => {
-    if (isPlaying) {
-      window.speechSynthesis.cancel();
-      setIsPlaying(false);
-      return;
-    }
-
-    const utterance = new SpeechSynthesisUtterance(message.text);
-    utterance.lang = 'pt-BR';
-    utterance.onend = () => setIsPlaying(false);
-    utterance.onerror = () => setIsPlaying(false);
-    
-    window.speechSynthesis.speak(utterance);
-    setIsPlaying(true);
-  };
 
   // Enhanced formatter with better code highlighting and rich text formatting
   const formatText = (text: string) => {
@@ -323,110 +315,127 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, color }) => {
   const highlightCode = (code: string, language: string) => {
     const lang = language.toLowerCase();
     
-    // Define color patterns for different token types
-    const patterns = {
-      // JavaScript/TypeScript
-      javascript: [
-        { regex: /\b(const|let|var|function|class|if|else|for|while|return|import|export|from|async|await|try|catch|finally)\b/g, className: 'text-purple-300' },
-        { regex: /\b(true|false|null|undefined)\b/g, className: 'text-orange-300' },
-        { regex: /"([^"\\]|\\.)*"|'([^'\\]|\\.)*'|`([^`\\]|\\.)*`/g, className: 'text-green-300' },
-        { regex: /\b\d+(\.\d+)?\b/g, className: 'text-blue-300' },
-        { regex: /\/\/.*$/gm, className: 'text-gray-400 italic' },
-        { regex: /\/\*[\s\S]*?\*\//g, className: 'text-gray-400 italic' },
-        { regex: /\b(console|document|window|Array|Object|String|Number|Boolean|Date|Math|JSON)\b/g, className: 'text-cyan-300' },
-      ],
+    // Escape HTML entities first
+    let highlightedCode = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    
+    // Define token patterns in order of priority (most specific first)
+    const getPatterns = (lang: string) => {
+      const basePatterns = [
+        // Comments (highest priority)
+        { regex: /\/\/.*$/gm, color: '#6A9955', type: 'comment', priority: 1 },
+        { regex: /\/\*[\s\S]*?\*\//g, color: '#6A9955', type: 'comment', priority: 1 },
+        { regex: /#.*$/gm, color: '#6A9955', type: 'comment', priority: 1 },
+        
+        // Strings (high priority)
+        { regex: /"([^"\\]|\\.)*"/g, color: '#D69D85', type: 'string', priority: 2 },
+        { regex: /'([^'\\]|\\.)*'/g, color: '#D69D85', type: 'string', priority: 2 },
+        { regex: /`([^`\\]|\\.)*`/g, color: '#D69D85', type: 'string', priority: 2 },
+        
+        // Numbers
+        { regex: /\b\d+(\.\d+)?([eE][+-]?\d+)?[fFdDlL]?\b/g, color: '#B5CEA8', type: 'number', priority: 3 },
+      ];
       
-      // Python
-      python: [
-        { regex: /\b(def|class|if|elif|else|for|while|return|import|from|as|try|except|finally|with|lambda|yield)\b/g, className: 'text-purple-300' },
-        { regex: /\b(True|False|None)\b/g, className: 'text-orange-300' },
-        { regex: /"([^"\\]|\\.)*"|'([^'\\]|\\.)*'|"""[\s\S]*?"""|'''[\s\S]*?'''/g, className: 'text-green-300' },
-        { regex: /\b\d+(\.\d+)?\b/g, className: 'text-blue-300' },
-        { regex: /#.*$/gm, className: 'text-gray-400 italic' },
-        { regex: /\b(print|len|range|str|int|float|list|dict|tuple|set)\b/g, className: 'text-cyan-300' },
-      ],
+      // Language-specific keywords and types
+      const langSpecific = {
+        javascript: [
+          { regex: /\b(const|let|var|function|class|if|else|for|while|return|import|export|from|async|await|try|catch|finally|interface|type|enum|extends|implements)\b/g, color: '#569CD6', type: 'keyword', priority: 4 },
+          { regex: /\b(string|number|boolean|object|any|void|never|unknown|Array|Promise)\b/g, color: '#4EC9B0', type: 'type', priority: 5 },
+          { regex: /\b(true|false|null|undefined)\b/g, color: '#569CD6', type: 'keyword', priority: 4 },
+        ],
+        python: [
+          { regex: /\b(def|class|if|elif|else|for|while|return|import|from|as|try|except|finally|with|lambda|yield|and|or|not|in|is)\b/g, color: '#569CD6', type: 'keyword', priority: 4 },
+          { regex: /\b(int|str|float|bool|list|dict|tuple|set|None)\b/g, color: '#4EC9B0', type: 'type', priority: 5 },
+          { regex: /\b(True|False|None)\b/g, color: '#569CD6', type: 'keyword', priority: 4 },
+        ],
+        java: [
+          { regex: /\b(public|private|protected|static|final|class|interface|extends|implements|if|else|for|while|return|import|package|try|catch|finally|new|this|super)\b/g, color: '#569CD6', type: 'keyword', priority: 4 },
+          { regex: /\b(int|String|double|boolean|char|long|short|byte|float|void|Object|ArrayList|HashMap)\b/g, color: '#4EC9B0', type: 'type', priority: 5 },
+          { regex: /\b(true|false|null)\b/g, color: '#569CD6', type: 'keyword', priority: 4 },
+        ],
+        html: [
+          { regex: /&lt;\/?\w+[^&gt;]*&gt;/g, color: '#569CD6', type: 'tag', priority: 4 },
+          { regex: /\w+(?==)/g, color: '#9CDCFE', type: 'attribute', priority: 5 },
+        ],
+        css: [
+          { regex: /[.#]?[\w-]+(?=\s*\{)/g, color: '#D69D85', type: 'selector', priority: 4 },
+          { regex: /[\w-]+(?=\s*:)/g, color: '#9CDCFE', type: 'property', priority: 5 },
+        ],
+        sql: [
+          { regex: /\b(SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TABLE|DATABASE|INDEX|JOIN|LEFT|RIGHT|INNER|OUTER|ON|GROUP|ORDER|BY|HAVING|LIMIT|DISTINCT|AS|AND|OR|NOT|IN|EXISTS|BETWEEN|LIKE|IS|NULL)\b/gi, color: '#569CD6', type: 'keyword', priority: 4 },
+        ],
+        json: [
+          { regex: /"([^"\\]|\\.)*"(?=\s*:)/g, color: '#9CDCFE', type: 'key', priority: 4 },
+          { regex: /\b(true|false|null)\b/g, color: '#569CD6', type: 'keyword', priority: 4 },
+        ],
+        bash: [
+          { regex: /\b(if|then|else|elif|fi|for|while|do|done|case|esac|function|return|exit|export|source|alias|cd|ls|mkdir|rm|cp|mv|grep|sed|awk|cat|echo|printf)\b/g, color: '#569CD6', type: 'keyword', priority: 4 },
+          { regex: /\$\w+|\$\{[^}]+\}/g, color: '#9CDCFE', type: 'variable', priority: 5 },
+        ]
+      };
       
-      // Java
-      java: [
-        { regex: /\b(public|private|protected|static|final|class|interface|extends|implements|if|else|for|while|return|import|package|try|catch|finally|new|this|super)\b/g, className: 'text-purple-300' },
-        { regex: /\b(true|false|null)\b/g, className: 'text-orange-300' },
-        { regex: /"([^"\\]|\\.)*"/g, className: 'text-green-300' },
-        { regex: /\b\d+(\.\d+)?[fFdDlL]?\b/g, className: 'text-blue-300' },
-        { regex: /\/\/.*$/gm, className: 'text-gray-400 italic' },
-        { regex: /\/\*[\s\S]*?\*\//g, className: 'text-gray-400 italic' },
-        { regex: /\b(System|String|Integer|Double|Boolean|ArrayList|HashMap)\b/g, className: 'text-cyan-300' },
-      ],
-      
-      // HTML
-      html: [
-        { regex: /&lt;\/?\w+[^&gt;]*&gt;/g, className: 'text-red-300' },
-        { regex: /\w+(?==)/g, className: 'text-yellow-300' },
-        { regex: /"([^"\\]|\\.)*"/g, className: 'text-green-300' },
-        { regex: /&lt;!--[\s\S]*?--&gt;/g, className: 'text-gray-400 italic' },
-      ],
-      
-      // CSS
-      css: [
-        { regex: /[.#]?[\w-]+(?=\s*{)/g, className: 'text-yellow-300' },
-        { regex: /[\w-]+(?=\s*:)/g, className: 'text-blue-300' },
-        { regex: /"([^"\\]|\\.)*"|'([^'\\]|\\.)*'/g, className: 'text-green-300' },
-        { regex: /\b\d+(\.\d+)?(px|em|rem|%|vh|vw|pt|pc|in|cm|mm|ex|ch|vmin|vmax)?\b/g, className: 'text-orange-300' },
-        { regex: /\/\*[\s\S]*?\*\//g, className: 'text-gray-400 italic' },
-      ],
-      
-      // SQL
-      sql: [
-        { regex: /\b(SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TABLE|DATABASE|INDEX|JOIN|LEFT|RIGHT|INNER|OUTER|ON|GROUP|ORDER|BY|HAVING|LIMIT|DISTINCT|AS|AND|OR|NOT|IN|EXISTS|BETWEEN|LIKE|IS|NULL)\b/gi, className: 'text-purple-300' },
-        { regex: /'([^'\\]|\\.)*'/g, className: 'text-green-300' },
-        { regex: /\b\d+(\.\d+)?\b/g, className: 'text-blue-300' },
-        { regex: /--.*$/gm, className: 'text-gray-400 italic' },
-      ],
-      
-      // JSON
-      json: [
-        { regex: /"([^"\\]|\\.)*"(?=\s*:)/g, className: 'text-blue-300' },
-        { regex: /"([^"\\]|\\.)*"(?!\s*:)/g, className: 'text-green-300' },
-        { regex: /\b(true|false|null)\b/g, className: 'text-orange-300' },
-        { regex: /\b\d+(\.\d+)?\b/g, className: 'text-cyan-300' },
-      ],
-      
-      // Bash/Shell
-      bash: [
-        { regex: /\b(if|then|else|elif|fi|for|while|do|done|case|esac|function|return|exit|export|source|alias|cd|ls|mkdir|rm|cp|mv|grep|sed|awk|cat|echo|printf)\b/g, className: 'text-purple-300' },
-        { regex: /"([^"\\]|\\.)*"|'([^'\\]|\\.)*'/g, className: 'text-green-300' },
-        { regex: /#.*$/gm, className: 'text-gray-400 italic' },
-        { regex: /\$\w+|\$\{[^}]+\}/g, className: 'text-yellow-300' },
-        { regex: /\b\d+\b/g, className: 'text-blue-300' },
-      ],
+      return [...basePatterns, ...(langSpecific[lang as keyof typeof langSpecific] || langSpecific.javascript)];
     };
     
-    // Get patterns for the specific language, fallback to javascript
-    const langPatterns = patterns[lang as keyof typeof patterns] || patterns.javascript;
+    const patterns = getPatterns(lang);
     
-    // Apply syntax highlighting
-    let highlightedCode = code;
+    // Find all tokens first, then resolve conflicts
+    const allTokens: Array<{start: number, end: number, color: string, type: string, priority: number, text: string}> = [];
     
-    // Create a map to store original matches and their replacements
-    const replacements: { original: string; replacement: string; }[] = [];
-    
-    langPatterns.forEach((pattern, index) => {
-      const matches = [...highlightedCode.matchAll(pattern.regex)];
-      matches.forEach((match) => {
-        const original = match[0];
-        const replacement = `<span class="${pattern.className}">${original}</span>`;
-        replacements.push({ original, replacement });
-      });
+    patterns.forEach(pattern => {
+      let match;
+      const regex = new RegExp(pattern.regex.source, pattern.regex.flags);
+      
+      while ((match = regex.exec(highlightedCode)) !== null) {
+        allTokens.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          color: pattern.color,
+          type: pattern.type,
+          priority: pattern.priority,
+          text: match[0]
+        });
+        
+        // Prevent infinite loop for non-global regexes
+        if (!pattern.regex.global) break;
+      }
     });
     
-    // Sort replacements by length (longest first) to avoid partial replacements
-    replacements.sort((a, b) => b.original.length - a.original.length);
+    // Sort by priority (lower number = higher priority) then by start position
+    allTokens.sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      return a.start - b.start;
+    });
     
-    // Apply replacements
-    replacements.forEach(({ original, replacement }) => {
-      // Only replace if not already wrapped in span
-      if (!highlightedCode.includes(`<span class=`) || !highlightedCode.includes(original)) {
-        highlightedCode = highlightedCode.replace(new RegExp(escapeRegExp(original), 'g'), replacement);
+    // Resolve conflicts - keep higher priority tokens, remove overlapping lower priority ones
+    const finalTokens: typeof allTokens = [];
+    
+    for (const token of allTokens) {
+      const hasConflict = finalTokens.some(existing => 
+        (token.start >= existing.start && token.start < existing.end) ||
+        (token.end > existing.start && token.end <= existing.end) ||
+        (token.start <= existing.start && token.end >= existing.end)
+      );
+      
+      if (!hasConflict) {
+        finalTokens.push(token);
       }
+    }
+    
+    // Sort by start position in reverse order for safe replacement
+    finalTokens.sort((a, b) => b.start - a.start);
+    
+    // Apply highlighting
+    finalTokens.forEach(token => {
+      const before = highlightedCode.substring(0, token.start);
+      const content = highlightedCode.substring(token.start, token.end);
+      const after = highlightedCode.substring(token.end);
+      
+      highlightedCode = before + `<span style="color: ${token.color}">${content}</span>` + after;
     });
     
     return highlightedCode;
@@ -458,7 +467,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, color }) => {
           <div className={`
             py-3 px-4 rounded-2xl shadow-sm text-sm md:text-base leading-relaxed break-words w-full overflow-hidden
             ${isUser 
-              ? 'bg-blue-600 text-white rounded-tr-none text-left' 
+              ? 'bg-white text-black rounded-tr-none text-left border border-gray-200' 
               : 'bg-white border border-gray-100 text-slate-800 rounded-tl-none'}
           `}>
             {/* Attached Image (User) */}
@@ -486,7 +495,26 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, color }) => {
               </div>
             )}
 
-            {formatText(message.text)}
+            {/* Text Content with Typewriter Effect */}
+            {shouldUseTypewriter ? (
+              <TypewriterText
+                text={message.text}
+                speed={Math.min(120, Math.max(60, message.text.length / 10))} // Velocidade adaptativa: 60-120 chars/sec
+                delay={200} // delay inicial um pouco maior para dar tempo do loading sumir
+                onComplete={() => setTypewriterComplete(true)}
+              >
+                {(displayText, isComplete) => (
+                  <div>
+                    {formatText(displayText)}
+                    {!isComplete && (
+                      <span className="inline-block w-0.5 h-4 bg-blue-500 ml-1 animate-pulse" />
+                    )}
+                  </div>
+                )}
+              </TypewriterText>
+            ) : (
+              formatText(message.text)
+            )}
             
             {/* Indicador de fallback */}
             {isFallbackMessage && (
@@ -504,15 +532,16 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, color }) => {
               {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
             
-            {/* TTS Button for Bot messages */}
-            {!isUser && message.text && (
-              <button 
-                onClick={handleSpeak}
-                className={`p-1 rounded-full transition-colors ${isPlaying ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:text-gray-500'}`}
-                title="Ler em voz alta"
-              >
-                <Icon name={isPlaying ? "Square" : "Volume2"} size={12} />
-              </button>
+            {/* AudioPlayer for AI messages */}
+            {!isUser && message.text && (shouldUseTypewriter ? typewriterComplete : true) && (
+              <AudioPlayer
+                text={message.text}
+                language={language}
+                messageId={message.id}
+                size="small"
+                showControls={false}
+                className="opacity-60 hover:opacity-100 transition-opacity"
+              />
             )}
           </div>
         </div>

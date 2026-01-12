@@ -7,6 +7,45 @@ export interface UserPreferences {
   notifications: boolean;
   highContrast: boolean;
   theme: 'light' | 'dark';
+  language: 'pt-BR' | 'en-US';
+}
+
+export interface OnboardingData {
+  // Como conheceu a plataforma
+  discoverySource: 'google_search' | 'social_media' | 'friend_recommendation' | 'advertisement' | 'blog_article' | 'youtube' | 'other';
+  discoverySourceDetails?: string; // Detalhes se "other" ou informações adicionais
+  
+  // Objetivo principal
+  primaryGoal: 'learning' | 'work_assistance' | 'research' | 'entertainment' | 'productivity' | 'other';
+  primaryGoalDetails?: string;
+  
+  // Área de interesse principal
+  primaryInterest: DomainId;
+  
+  // Nível de experiência
+  experienceLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  
+  // Profissão/área de atuação
+  profession?: string;
+  
+  // Expectativas
+  expectations: string[];
+  
+  // Frequência de uso pretendida
+  expectedUsage: 'daily' | 'weekly' | 'monthly' | 'occasionally';
+  
+  // Dispositivo principal
+  primaryDevice: 'desktop' | 'mobile' | 'tablet' | 'mixed';
+  
+  // Dados demográficos opcionais
+  ageRange?: '18-24' | '25-34' | '35-44' | '45-54' | '55-64' | '65+';
+  location?: string; // País/região
+  
+  // Feedback inicial
+  initialFeedback?: string;
+  
+  // Timestamp
+  completedAt: number;
 }
 
 export interface User {
@@ -19,6 +58,8 @@ export interface User {
   preferences: UserPreferences;
   createdAt: number;
   passwordHash?: string; // Hash da senha (opcional para compatibilidade)
+  onboarding?: OnboardingData; // Dados de onboarding
+  hasCompletedOnboarding?: boolean; // Flag para saber se completou
 }
 
 export interface Attachment {

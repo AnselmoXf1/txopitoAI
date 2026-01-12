@@ -2,6 +2,7 @@ import React from 'react';
 import { DOMAINS } from '../constants';
 import { DomainId, ChatSession, User } from '../types';
 import Icon from './Icon';
+import TxopitoLogo from './TxopitoLogo';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -49,14 +50,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Header */}
         <div className="p-5 border-b border-white/5 flex items-center justify-between bg-black/20">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
-              <Icon name="Brain" size={20} />
-            </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              TXOPITO
-            </h1>
-          </div>
+          <TxopitoLogo 
+            size="medium" 
+            variant="sidebar" 
+            showText={true}
+          />
           <button onClick={onClose} className="md:hidden text-slate-500 hover:text-white transition-colors">
             <Icon name="X" />
           </button>

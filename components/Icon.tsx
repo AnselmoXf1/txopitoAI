@@ -35,7 +35,18 @@ import {
   Image as ImageIcon,
   Wand2,
   Volume2,
-  Square
+  Square,
+  Bug,
+  AlertCircle,
+  CheckCircle,
+  Eye,
+  Search,
+  RefreshCw,
+  Home,
+  Users,
+  Activity,
+  BarChart3,
+  Shield
 } from 'lucide-react';
 
 interface IconProps {
@@ -81,7 +92,18 @@ const Icon: React.FC<IconProps> = ({ name, className, size = 20 }) => {
     'Image': ImageIcon,
     'Wand2': Wand2,
     'Volume2': Volume2,
-    'Square': Square
+    'Square': Square,
+    'Bug': Bug,
+    'AlertCircle': AlertCircle,
+    'CheckCircle': CheckCircle,
+    'Eye': Eye,
+    'Search': Search,
+    'RefreshCw': RefreshCw,
+    'Home': Home,
+    'Users': Users,
+    'Activity': Activity,
+    'BarChart3': BarChart3,
+    'Shield': Shield
   };
 
   const IconComponent = icons[name] || MessageSquare;

@@ -28,13 +28,16 @@ export interface AppConfig {
 const loadConfig = (): AppConfig => {
   // Tenta carregar a API key de diferentes fontes
   const apiKey = 
+    process.env.VITE_GEMINI_API_KEY || 
     process.env.GEMINI_API_KEY || 
     process.env.API_KEY || 
     (typeof window !== 'undefined' && (window as any).VITE_GEMINI_API_KEY) || 
     '';
 
   if (!apiKey) {
-    console.warn('⚠️ API Key do Gemini não encontrada. Configure GEMINI_API_KEY no .env.local');
+    console.warn('⚠️ API Key do Gemini não encontrada. Configure VITE_GEMINI_API_KEY no .env.local');
+  } else {
+    console.log('✅ API Key do Gemini carregada com sucesso');
   }
 
   return {

@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User, ChatSession, DomainConfig, UserPreferences } from '../types';
 import Icon from './Icon';
 import MemoryPanel from './MemoryPanel';
 import LanguageSelector from './LanguageSelector';
-import { getRank } from '../backend/api';
+import AudioSettings from './AudioSettings';
+import { ErrorReportModal } from './ErrorReportModal';
+import { getRank } from '../services/browserApi';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface RightSidebarProps {
@@ -29,11 +31,13 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   onUpdatePreferences,
   onOpenMemory
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
+  const [showErrorReport, setShowErrorReport] = useState(false);
   // Level Calculation for UI
-  const xpNeeded = user.level * 200;
-  const progress = (user.xp / xpNeeded) * 100;
-  const rank = getRank(user.level);
+  const xpNeeded = (user?.level || 1) * 200;
+  const progress = ((user?.xp || 0) / xpNeeded) * 100;
+  const rank = getRank(user?.level || 1);
 
   const stats = {
     messages: currentSession?.messages.length || 0,
@@ -42,18 +46,18 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* Overlay Background - aparece em todas as telas quando aberto */}
       <div 
-        className={`fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
 
+      {/* Sidebar Panel - sempre como overlay */}
       <aside 
         className={`
-          fixed top-0 right-0 bottom-0 z-50 w-80 bg-white border-l border-gray-200 shadow-2xl lg:shadow-none
+          fixed top-0 right-0 bottom-0 z-50 w-80 bg-white border-l border-gray-200 shadow-2xl
           transform transition-transform duration-300 ease-in-out flex flex-col
-          lg:relative lg:translate-x-0
-          ${isOpen ? 'translate-x-0' : 'translate-x-full lg:hidden'}
+          ${isOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
       >
         {/* Header */}
@@ -62,8 +66,12 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             <Icon name="Settings" size={18} className="text-gray-400" />
             {t('settings')}
           </h2>
-          <button onClick={onClose} className="lg:hidden text-gray-400 hover:text-gray-600">
-            <Icon name="X" />
+          <button 
+            onClick={onClose} 
+            className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+            title="Fechar"
+          >
+            <Icon name="X" size={20} />
           </button>
         </div>
 
@@ -76,11 +84,19 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
 
             <div className="flex items-center gap-4 mb-4 relative z-10">
               <div className="relative">
-                <img 
-                  src={user.avatar} 
-                  alt={user.name} 
-                  className="w-14 h-14 rounded-full border-2 border-white/20 object-cover"
-                />
+                {user.avatar ? (
+                  <img 
+                    src={user.avatar} 
+                    alt={user.name} 
+                    className="w-14 h-14 rounded-full border-2 border-white/20 object-cover"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full border-2 border-white/20 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
                 <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-slate-900 rounded-full"></div>
               </div>
               <div>
@@ -93,8 +109,8 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
             
             <div className="mt-4">
               <div className="flex justify-between text-xs text-slate-400 mb-1">
-                <span>Nível {user.level}</span>
-                <span>{user.xp} / {xpNeeded} XP</span>
+                <span>Nível {user?.level || 1}</span>
+                <span>{user?.xp || 0} / {xpNeeded} XP</span>
               </div>
               <div className="w-full bg-black/30 rounded-full h-2 overflow-hidden">
                 <div 
@@ -103,7 +119,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                 ></div>
               </div>
               <p className="text-[10px] text-center text-slate-500 mt-2">
-                Continue estudando para alcançar o cargo de {getRank(user.level + 5)}
+                Continue estudando para alcançar o cargo de {getRank((user?.level || 1) + 5)}
               </p>
             </div>
           </div>
@@ -182,6 +198,21 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                   </div>
                 </div>
               </button>
+
+              <button 
+                onClick={() => setShowErrorReport(true)}
+                className="w-full flex items-center justify-between p-3 bg-white border border-gray-200 hover:border-orange-400 hover:shadow-sm rounded-xl transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-50 text-orange-600 rounded-lg group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                    <Icon name="Bug" size={18} />
+                  </div>
+                  <div className="text-left">
+                    <span className="block text-sm font-semibold text-slate-700">Reportar Problema</span>
+                    <span className="block text-[10px] text-gray-400">Nos ajude a melhorar</span>
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -204,10 +235,10 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                   <span>Notificações</span>
                 </div>
                 <button 
-                  onClick={() => onUpdatePreferences({ notifications: !user.preferences.notifications })}
-                  className={`w-10 h-5 rounded-full relative transition-colors ${user.preferences.notifications ? 'bg-blue-500' : 'bg-gray-300'}`}
+                  onClick={() => onUpdatePreferences({ notifications: !user?.preferences?.notifications })}
+                  className={`w-10 h-5 rounded-full relative transition-colors ${user?.preferences?.notifications ? 'bg-blue-500' : 'bg-gray-300'}`}
                 >
-                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform ${user.preferences.notifications ? 'left-6' : 'left-1'}`}></div>
+                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform ${user?.preferences?.notifications ? 'left-6' : 'left-1'}`}></div>
                 </button>
               </div>
               <div className="w-full h-px bg-gray-200"></div>
@@ -217,10 +248,24 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                   <span>Alto Contraste</span>
                 </div>
                 <button 
-                  onClick={() => onUpdatePreferences({ highContrast: !user.preferences.highContrast })}
-                  className={`w-10 h-5 rounded-full relative transition-colors ${user.preferences.highContrast ? 'bg-blue-500' : 'bg-gray-300'}`}
+                  onClick={() => onUpdatePreferences({ highContrast: !user?.preferences?.highContrast })}
+                  className={`w-10 h-5 rounded-full relative transition-colors ${user?.preferences?.highContrast ? 'bg-blue-500' : 'bg-gray-300'}`}
                 >
-                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform ${user.preferences.highContrast ? 'left-6' : 'left-1'}`}></div>
+                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform ${user?.preferences?.highContrast ? 'left-6' : 'left-1'}`}></div>
+                </button>
+              </div>
+              <div className="w-full h-px bg-gray-200"></div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <Icon name="Volume2" size={16} />
+                  <span>Configurações de Áudio</span>
+                </div>
+                <button 
+                  onClick={() => setShowAudioSettings(true)}
+                  className="p-1 rounded-lg bg-gray-200 hover:bg-gray-300 transition-colors"
+                  title="Configurar áudio"
+                >
+                  <Icon name="Settings" size={14} />
                 </button>
               </div>
             </div>
@@ -245,6 +290,23 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
           <p className="text-[10px] text-gray-400">Backend v2.1 • Build 2025</p>
         </div>
       </aside>
+      
+      {/* AudioSettings Modal */}
+      <AudioSettings
+        isOpen={showAudioSettings}
+        onClose={() => setShowAudioSettings(false)}
+        language={language}
+      />
+
+      {/* Error Report Modal */}
+      <ErrorReportModal
+        isOpen={showErrorReport}
+        onClose={() => setShowErrorReport(false)}
+        user={user}
+        currentDomain={activeDomain.id}
+        sessionId={currentSession?.id}
+        conversationId={currentSession?.id}
+      />
     </>
   );
 };

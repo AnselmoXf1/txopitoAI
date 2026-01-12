@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Icon from './Icon';
+import VoiceInput from './VoiceInput';
 import { Attachment } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface InputAreaProps {
   onSend: (text: string, attachment: Attachment | null, isImageGeneration: boolean) => void;
@@ -11,11 +13,12 @@ interface InputAreaProps {
 const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, placeholder }) => {
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<Attachment | null>(null);
-  const [isListening, setIsListening] = useState(false);
   const [isImageMode, setIsImageMode] = useState(false);
+  const [showVoiceInput, setShowVoiceInput] = useState(false);
+  const { language } = useLanguage();
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<any>(null);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -25,31 +28,18 @@ const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, placeholder })
     }
   }, [text]);
 
-  // Setup Speech Recognition
-  useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'pt-BR';
-
-      recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setText((prev) => prev + (prev ? ' ' : '') + transcript);
-        setIsListening(false);
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        setIsListening(false);
-      };
-      
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-      };
-    }
-  }, []);
+  // Handle voice transcript
+  const handleVoiceTranscript = (transcript: string) => {
+    setText(prev => {
+      const newText = prev ? `${prev} ${transcript}` : transcript;
+      return newText;
+    });
+    
+    // Auto-focus textarea after voice input
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 100);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -79,24 +69,6 @@ const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, placeholder })
     }
   };
 
-  const toggleListening = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    } else {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.start();
-          setIsListening(true);
-        } catch (e) {
-          console.error(e);
-        }
-      } else {
-        alert("Seu navegador não suporta reconhecimento de voz.");
-      }
-    }
-  };
-
   const handleSend = () => {
     if ((text.trim() || attachment) && !isLoading) {
       onSend(text, attachment, isImageMode);
@@ -108,8 +80,8 @@ const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, placeholder })
   };
 
   return (
-    <div className="w-full bg-white/80 backdrop-blur-md border-t border-gray-100 p-2 md:p-4">
-      <div className={`max-w-3xl mx-auto flex flex-col gap-1 md:gap-2 bg-gray-50/50 border transition-all duration-300 shadow-inner rounded-2xl md:rounded-3xl p-1.5 md:p-2 ${isImageMode ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100'}`}>
+    <div className="w-full bg-white border-t border-gray-200 p-2 md:p-4">
+      <div className={`max-w-3xl mx-auto flex flex-col gap-1 md:gap-2 bg-white border transition-all duration-300 shadow-sm rounded-2xl md:rounded-3xl p-1.5 md:p-2 ${isImageMode ? 'border-gray-400 ring-2 ring-gray-200' : 'border-gray-300 focus-within:border-gray-500 focus-within:ring-2 focus-within:ring-gray-200'}`}>
         
         {/* Preview Area */}
         {attachment && (
@@ -141,7 +113,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, placeholder })
             />
             <button 
               onClick={() => fileInputRef.current?.click()}
-              className="p-1.5 md:p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
+              className="p-1.5 md:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
               title="Anexar Imagem"
               disabled={isImageMode} // Disable upload in generation mode for simplicity
             >
@@ -149,7 +121,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, placeholder })
             </button>
             <button 
               onClick={() => setIsImageMode(!isImageMode)}
-              className={`p-1.5 md:p-2 rounded-full transition-colors ${isImageMode ? 'text-purple-600 bg-purple-100' : 'text-gray-400 hover:text-purple-500 hover:bg-purple-50'}`}
+              className={`p-1.5 md:p-2 rounded-full transition-colors ${isImageMode ? 'text-gray-700 bg-gray-200' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
               title="Gerar Imagem com IA"
               disabled={!!attachment} // Disable generation if uploading
             >
@@ -165,15 +137,21 @@ const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, placeholder })
             placeholder={isImageMode ? "Descreva a imagem que deseja gerar..." : (placeholder || "Digite sua mensagem...")}
             disabled={isLoading}
             rows={1}
-            className="flex-1 bg-transparent border-none focus:ring-0 resize-none py-2 md:py-3 px-1 md:px-2 text-sm md:text-base max-h-[120px] md:max-h-[200px] overflow-y-auto text-slate-800 placeholder-slate-400 outline-none"
+            className="flex-1 bg-transparent border-none focus:ring-0 resize-none py-2 md:py-3 px-1 md:px-2 text-sm md:text-base max-h-[120px] md:max-h-[200px] overflow-y-auto text-black placeholder-gray-500 outline-none"
           />
           
           <div className="flex items-center gap-0.5 md:gap-1 pb-0.5">
+            {/* Voice Input Button */}
             <button 
-              onClick={toggleListening}
-              className={`p-2 md:p-3 rounded-xl md:rounded-2xl transition-all duration-300 ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-gray-400 hover:bg-gray-200'}`}
+              onClick={() => setShowVoiceInput(!showVoiceInput)}
+              className={`p-2 md:p-3 rounded-xl md:rounded-2xl transition-all duration-300 ${
+                showVoiceInput 
+                  ? 'bg-gray-600 text-white' 
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+              title="Entrada por voz"
             >
-              <Icon name={isListening ? "MicOff" : "Mic"} size={16} />
+              <Icon name="Mic" size={16} />
             </button>
 
             <button
@@ -182,7 +160,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, placeholder })
               className={`
                 p-2 md:p-3 rounded-xl md:rounded-2xl flex-shrink-0 transition-all duration-300
                 ${(text.trim() || attachment) && !isLoading 
-                  ? (isImageMode ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30' : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:scale-105')
+                  ? (isImageMode ? 'bg-gradient-to-r from-gray-700 to-gray-800 text-white shadow-lg shadow-gray-500/30' : 'bg-gradient-to-r from-gray-700 to-gray-800 text-white shadow-lg shadow-gray-500/30 hover:scale-105')
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
               `}
             >
@@ -190,10 +168,23 @@ const InputArea: React.FC<InputAreaProps> = ({ onSend, isLoading, placeholder })
             </button>
           </div>
         </div>
+        
+        {/* Voice Input Panel */}
+        {showVoiceInput && (
+          <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <VoiceInput
+              onTranscript={handleVoiceTranscript}
+              language={language}
+              disabled={isLoading}
+              placeholder="Clique no microfone e fale"
+              className="w-full"
+            />
+          </div>
+        )}
       </div>
       <div className="text-center text-[9px] md:text-[10px] text-gray-400 mt-1 md:mt-2 font-medium flex items-center justify-center gap-1 md:gap-2">
-        <span>TXOPITO IA v2.5</span>
-        {isImageMode && <span className="text-purple-500 font-bold">• Modo Criativo Ativado</span>}
+        <span>txopito pode cometer alguns erros</span>
+        {isImageMode && <span className="text-gray-600 font-bold">• Modo Criativo Ativado</span>}
       </div>
     </div>
   );

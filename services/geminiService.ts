@@ -56,12 +56,6 @@ const createAIClient = () => {
   }
   return new GoogleGenAI({ apiKey: config.gemini.apiKey });
 };
-  if (!config.gemini.apiKey) {
-    logger.error('API Key do Gemini não configurada', 'GeminiService');
-    throw new Error("API_KEY is missing. Configure GEMINI_API_KEY in .env.local");
-  }
-  return new GoogleGenAI({ apiKey: config.gemini.apiKey });
-}
 
 // --- CHAT WITH VISION ---
 export const streamResponse = async (
@@ -75,8 +69,17 @@ export const streamResponse = async (
   logger.info('Iniciando stream de resposta', 'GeminiService', { 
     hasAttachment: !!attachment, 
     historyLength: history.length,
-    messageLength: newMessage.length 
+    messageLength: newMessage.length,
+    hasApiKey: !!config.gemini.apiKey
   });
+
+  // Verifica se a API key está configurada
+  if (!config.gemini.apiKey) {
+    logger.error('API Key do Gemini não configurada', 'GeminiService');
+    const errorMessage = "🔑 **Configuração Necessária**\n\nPara usar o TXOPITO IA, você precisa configurar sua chave da API do Gemini.\n\n**Como configurar:**\n1. Obtenha sua chave em: https://aistudio.google.com\n2. Configure a variável VITE_GEMINI_API_KEY\n\nEnquanto isso, posso te ajudar com informações gerais!";
+    onChunk(errorMessage);
+    return errorMessage;
+  }
 
   try {
     // Verifica tentativas de engenharia social
@@ -209,6 +212,23 @@ export const streamResponse = async (
         error: streamError.message,
         hasAttachment: !!attachment 
       });
+      
+      // Detectar tipos específicos de erro
+      const errorMessage = streamError.message.toLowerCase();
+      
+      if (errorMessage.includes('connection_reset') || errorMessage.includes('err_connection_reset')) {
+        logger.error('Conexão resetada - possível problema com API key', 'GeminiService');
+        const resetErrorResponse = "🔌 **Problema de Conexão**\n\nA conexão com a IA foi resetada. Isso geralmente indica:\n\n• **API Key inválida ou incompleta**\n• **Problema de rede temporário**\n• **Limite de requisições excedido**\n\n**Soluções:**\n1. Verifique se sua API key está correta\n2. Tente novamente em alguns segundos\n3. Verifique sua conexão com a internet\n\nEnquanto isso, posso te ajudar com informações gerais!";
+        onChunk(resetErrorResponse);
+        return resetErrorResponse;
+      }
+      
+      if (errorMessage.includes('failed to fetch')) {
+        logger.error('Falha na requisição - possível problema de CSP ou rede', 'GeminiService');
+        const fetchErrorResponse = "🌐 **Problema de Conectividade**\n\nNão foi possível conectar com a IA. Possíveis causas:\n\n• **Problema de rede**\n• **Bloqueio de segurança**\n• **Servidor temporariamente indisponível**\n\n**Tente:**\n1. Recarregar a página\n2. Verificar sua conexão\n3. Tentar novamente em alguns minutos\n\nVou usar respostas locais enquanto isso!";
+        onChunk(fetchErrorResponse);
+        return fetchErrorResponse;
+      }
       
       // Usa fallback em caso de erro de streaming
       if (domainId) {

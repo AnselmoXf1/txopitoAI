@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Icon from './Icon';
 import { User } from '../types';
-import { AuthService } from '../backend/api';
+import { AuthService } from '../services/browserApi';
 
 interface AccountSettingsProps {
   user: User;
@@ -89,11 +89,11 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({ user, onClose, onUser
           {/* Estatísticas */}
           <div className="grid grid-cols-3 gap-4 text-center">
             <div className="p-3 bg-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{user.level}</div>
+              <div className="text-2xl font-bold text-blue-600">{user?.level || 1}</div>
               <div className="text-xs text-blue-600">Nível</div>
             </div>
             <div className="p-3 bg-green-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{user.xp}</div>
+              <div className="text-2xl font-bold text-green-600">{user?.xp || 0}</div>
               <div className="text-xs text-green-600">XP</div>
             </div>
             <div className="p-3 bg-purple-50 rounded-lg">
